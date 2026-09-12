@@ -8,7 +8,7 @@ function pick(a:string[]){return a[Math.floor(Math.random()*a.length)]}
 function esc(s:string){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c))}
 function setText(el:Element|null,value:string){if(el&&el.textContent!==value)el.textContent=value}
 
-function malteseSvg(){return `<svg class="vella-svg" viewBox="0 0 180 180" role="img" aria-label="Vella, perro maltés">
+function malteseSvg(){return `<svg class="vella-svg" viewBox="0 0 180 180" role="img" aria-label="Bella, perro maltés">
 <defs><linearGradient id="vfur" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#eeeaf5"/></linearGradient></defs>
 <ellipse cx="90" cy="148" rx="48" ry="21" fill="#dcd5e9" opacity=".45"/>
 <path d="M49 72C23 63 20 34 39 27c13-5 25 12 26 29M131 72c26-9 29-38 10-45-13-5-25 12-26 29" fill="url(#vfur)" stroke="#d9d2e7" stroke-width="3"/>
@@ -25,7 +25,7 @@ let hideTimer:number|undefined;
 function ensureMascot(){
   if(document.getElementById('vella-coach'))return;
   const el=document.createElement('div');el.id='vella-coach';el.className='vella-coach';
-  el.innerHTML=`<div class="vella-bubble"><b>Vella</b><span>${esc(lastMessage)}</span></div><button class="vella-dog" aria-label="Vella sagt Hallo">${malteseSvg()}<span>VELLA</span></button>`;
+  el.innerHTML=`<div class="vella-bubble"><b>Bella</b><span>${esc(lastMessage)}</span></div><button class="vella-dog" aria-label="Bella sagt Hallo">${malteseSvg()}<span>BELLA</span></button>`;
   document.body.appendChild(el);
   el.querySelector('.vella-dog')?.addEventListener('click',()=>cheer('Du schaffst das!'));
 }
