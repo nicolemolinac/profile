@@ -2,6 +2,7 @@ import React from 'react';
 import{createRoot}from'react-dom/client';
 import'./styles.css';
 import'./naturalGermanVoice';
+import'./feedbackSounds';
 
 function esc(message:string){return message.replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]||m))}
 function showFatal(message:string){
