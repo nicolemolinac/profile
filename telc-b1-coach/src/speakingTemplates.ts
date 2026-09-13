@@ -49,3 +49,58 @@ for (const task of SPEAKING as any[]) {
   task[1] = template.description;
   task[2] = template.lines;
 }
+
+// Bridge browser-local German progress into Chief's backend. The Coach itself is a
+// Vite-only app, so Chief cannot read its localStorage directly across ports.
+// App.tsx imports this module on startup, which makes the bridge available without
+// coupling the learning UI to Chief.
+const CHIEF_API='http://localhost:8100';
+const TARGET_WORDS=2000;
+let chiefSyncTimer:number|undefined;
+
+function chiefProgress(raw:string){
+  try{
+    const p=JSON.parse(raw||'{}');
+    const known=Array.isArray(p.known)?p.known.length:0;
+    const listening=Number(p.listening||0),speaking=Number(p.speaking||0),writing=Number(p.writing||0),reading=Number(p.reading||0);
+    const readiness=Math.round(listening*.4+speaking*.3+writing*.2+reading*.1);
+    return {
+      words_learned:known,
+      words_target:TARGET_WORDS,
+      vocab_coverage_pct:Math.round((known/TARGET_WORDS)*1000)/10,
+      progress_pct:readiness,
+      readiness,
+      listen_done:Number(p.listenDone||0),
+      listen_correct:Number(p.listenCorrect||0),
+      speak_done:Number(p.speakDone||0),
+      write_done:Number(p.writeDone||0),
+      xp:Number(p.xp||0),
+      exam_date:p.examDate||null,
+      latest:new Date().toISOString()
+    };
+  }catch{return null}
+}
+
+async function pushChief(raw:string){
+  const progress=chiefProgress(raw);if(!progress)return;
+  try{
+    const r=await fetch(`${CHIEF_API}/memory`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'agent_output',key:'german_progress',value:JSON.stringify(progress),source_agent:'german'})});
+    if(r.ok)fetch(`${CHIEF_API}/home/refresh`,{method:'POST'}).catch(()=>{});
+  }catch{}
+}
+
+function scheduleChiefSync(raw:string){
+  if(chiefSyncTimer)window.clearTimeout(chiefSyncTimer);
+  chiefSyncTimer=window.setTimeout(()=>pushChief(raw),500);
+}
+
+if(typeof window!=='undefined'&&!(window as any).__telcChiefSyncInstalled){
+  (window as any).__telcChiefSyncInstalled=true;
+  const nativeSetItem=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(key:string,value:string){
+    nativeSetItem.call(this,key,value);
+    if(this===window.localStorage&&key==='telcb1')scheduleChiefSync(value);
+  };
+  const existing=window.localStorage.getItem('telcb1');
+  if(existing)scheduleChiefSync(existing);
+}
