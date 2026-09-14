@@ -1,0 +1,45 @@
+import React,{useEffect,useMemo,useState}from'react';
+import{Volume2,CheckCircle2,Search}from'lucide-react';
+import{loadCorpusWords,loadSpanishMap,approxPronunciation,type CorpusWord}from'./corpus';
+import{completeSpanishTranslations}from'./translationFallback';
+import{findExamExample}from'./examExamples';
+import{groupCorpusFamilies,type VocabFamily}from'./vocabFamilies';
+
+type View='study'|'all'|'learned'|'review'|'pending';
+type StudyMode='new'|'errors';
+type Card={family:VocabFamily;id:string;de:string;forms:string[];es:string;pron:string;roi:number;rank:number;freq:number;speaking:number;writing:number;listening:number};
+const say=(t:string,r=.82)=>{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='de-DE';u.rate=r;speechSynthesis.speak(u)};
+const audio=(e:React.MouseEvent,t:string,r=.82)=>{e.preventDefault();e.stopPropagation();say(t,r)};
+const H=({e,t,s}:{e:string,t:string,s:string})=><header className="vocabHeader"><div className="eyebrow">{e}</div><h1>{t}</h1><p>{s}</p></header>;
+
+function familyKnown(f:VocabFamily,known:string[]){return known.includes(f.id)||f.members.some(m=>known.includes(m.id))}
+function familyReview(f:VocabFamily,review:string[]){return review.includes(f.id)||f.members.some(m=>review.includes(m.id))}
+function translationFor(f:VocabFamily,map:Record<string,string>){
+ const direct=map[f.lemma]||map[f.lemma.toLocaleLowerCase('de-DE')];if(direct)return direct;
+ for(const m of f.members){const x=map[m.de.toLocaleLowerCase('de-DE')];if(x)return x}
+ return '';
+}
+function formsLabel(c:Card){return c.forms.filter(x=>x.toLocaleLowerCase('de-DE')!==c.de.toLocaleLowerCase('de-DE')).join(' · ')}
+
+export default function FamilyVocabCoach({p,setP}:any){
+ const[view,setView]=useState<View>('study'),[mode,setMode]=useState<StudyMode>('new'),[i,setI]=useState(0),[flip,setFlip]=useState(false),[q,setQ]=useState(''),[corpus,setCorpus]=useState<CorpusWord[]>([]),[esMap,setEsMap]=useState<Record<string,string>>({}),[loading,setLoading]=useState(true),[visible,setVisible]=useState(150);
+ useEffect(()=>{let live=true;loadCorpusWords().then(async rows=>{if(!live)return;setCorpus(rows);const base=await loadSpanishMap(rows);const tr=await completeSpanishTranslations(rows,base);if(live)setEsMap(tr);setLoading(false)}).catch(e=>{console.error(e);setLoading(false)});return()=>{live=false}},[]);
+ useEffect(()=>{setVisible(150);setI(0);setFlip(false)},[view,q,mode]);
+ const families=useMemo(()=>groupCorpusFamilies(corpus),[corpus]);
+ const cards=useMemo<Card[]>(()=>families.map(f=>({family:f,id:f.id,de:f.lemma,forms:f.forms,es:translationFor(f,esMap),pron:approxPronunciation(f.lemma),roi:f.roi,rank:f.rank,freq:f.freq,speaking:f.speaking,writing:f.writing,listening:f.listening})),[families,esMap]);
+ const reviewIds:string[]=p.review||[],knownIds:string[]=p.known||[];
+ const learned=cards.filter(c=>familyKnown(c.family,knownIds)).length;
+ const translated=cards.filter(c=>!!c.es);
+ const errorWords=translated.filter(c=>familyReview(c.family,reviewIds)&&!familyKnown(c.family,knownIds));
+ const newWords=translated.filter(c=>!familyKnown(c.family,knownIds)&&!familyReview(c.family,reviewIds));
+ const remainingTotal=Math.max(0,cards.length-learned),queue=mode==='errors'?errorWords:newWords,v=queue.length?queue[i%queue.length]:undefined;
+ const reviewCount=errorWords.length,missing=cards.filter(c=>!c.es).length;
+ const filtered=useMemo(()=>cards.filter(c=>{const learnedNow=familyKnown(c.family,knownIds),reviewNow=familyReview(c.family,reviewIds);const scope=view==='learned'?learnedNow:view==='review'?reviewNow:view==='pending'?!learnedNow:true;return scope&&(`${c.de} ${c.forms.join(' ')} ${c.es}`.toLowerCase().includes(q.toLowerCase()))}),[cards,view,knownIds,reviewIds,q]);
+ function reveal(){if(!v||flip)return;setFlip(true);say(v.de)}
+ function mark(ok:boolean){if(!v)return;const memberIds=v.family.members.map(m=>m.id);const cleanedKnown=knownIds.filter(x=>!memberIds.includes(x)&&x!==v.id);const cleanedReview=reviewIds.filter(x=>!memberIds.includes(x)&&x!==v.id);setP({...p,xp:p.xp+(ok?8:2),known:ok?[...cleanedKnown,v.id]:cleanedKnown,review:ok?cleanedReview:[...cleanedReview,v.id]});setI(x=>x+1);setFlip(false)}
+ const exam=v?(findExamExample(v.de)||v.family.members.map(m=>findExamExample(m.de)).find(Boolean)):null;
+ const variants=v?formsLabel(v):'';
+ return <div className="vocabPage"><H e={loading?'AGRUPANDO CORPUS…':`${learned}/${cards.length} FAMILIAS APRENDIDAS · ${reviewCount} PARA REPASAR`} t="Vocabulario TELC agrupado por familia." s={loading?'Lematizando conjugaciones, plurales y variantes del corpus.':`${corpus.length} formas del corpus → ${cards.length} tarjetas reales. Las frecuencias de todas las variantes se suman a su palabra base.`}/>
+ <div className="segmented vocabTabs"><button className={view==='study'?'sel':''} onClick={()=>setView('study')}>Estudiar</button><button className={view==='all'?'sel':''} onClick={()=>setView('all')}>Todas ({cards.length})</button><button className={view==='learned'?'sel':''} onClick={()=>setView('learned')}>Aprendidas ({learned})</button><button className={view==='review'?'sel':''} onClick={()=>setView('review')}>Repaso ({reviewCount})</button><button className={view==='pending'?'sel':''} onClick={()=>setView('pending')}>Faltan ({remainingTotal})</button></div>
+ {view==='study'?<><div className="segmented vocabModes"><button className={mode==='new'?'sel':''} onClick={()=>setMode('new')}>Seguir avanzando ({newWords.length})</button><button className={mode==='errors'?'sel':''} onClick={()=>setMode('errors')}>Repasar errores ({reviewCount})</button></div>{loading?<div className="glass sideCard"><h3>Preparando familias…</h3></div>:v?<div className="studyGrid vocabStudy"><div className={'flash '+(flip?'flipped':'')} onClick={()=>!flip&&reveal()}><span className="roi">ROI {v.roi}</span>{!flip?<><small>{mode==='errors'?'REPASO DE ERRORES':'FAMILIA DE PALABRA · UNA SOLA TARJETA'}</small><h2>{v.de}</h2>{variants&&<h3 style={{marginTop:8,fontWeight:600}}>{variants}</h3>}<p>Frecuencia familiar {v.freq} · S {v.speaking} · W {v.writing} · L {v.listening}</p><p>Reconoce la palabra base y sus formas; no memorices cada conjugación como una palabra nueva.</p><button className="primary" onClick={e=>{e.preventDefault();e.stopPropagation();reveal()}}>Revelar significado</button></>:<><small>TRADUCCIÓN</small><h2>{v.es}</h2><div className="pron">🇩🇪 {v.de}{variants?` · ${variants}`:''} · 🗣 {v.pron}</div>{exam&&<blockquote><small>DE TU EXAMEN · {exam.source.toUpperCase()}</small><b>{exam.de}</b><br/><span>{exam.es}</span></blockquote>}<button className="audioBtn" onClick={e=>audio(e,exam?.de||v.de)}><Volume2/>Escuchar</button></>}</div><div className="glass sideCard"><h3>¿Reconociste esta familia?</h3><p>Si reconoces <b>{v.de}</b> y entiendes sus variantes en contexto, cuenta como una sola familia aprendida.</p><button onClick={()=>mark(false)}>Todavía no</button><button className="good" onClick={()=>mark(true)}><CheckCircle2/>Sí, fácil</button></div></div>:<div className="glass sideCard"><h3>{mode==='errors'?'No tienes errores pendientes 🎉':'Terminaste las familias disponibles 🎉'}</h3><p>{missing?`${missing} familias todavía no tienen traducción y se reintentarán automáticamente.`:'Ahora el progreso cuenta familias reales, no formas flexionadas.'}</p></div>}</>:<><div className="search"><Search size={17}/><input placeholder="Buscar lema, plural o conjugación…" value={q} onChange={e=>setQ(e.target.value)}/></div><div className="wordList">{filtered.slice(0,visible).map(x=>{const vars=formsLabel(x);return <div className="wordRow" key={x.id}><span className="rank">#{x.rank}</span><div><b>{x.de}{vars?` · ${vars}`:''}</b><small>{x.es||'Sin traducción — reintentando'} · freq familiar {x.freq} · S{x.speaking} W{x.writing} L{x.listening}</small></div><span className="score">ROI {x.roi}</span><button onClick={e=>audio(e,x.de)}><Volume2 size={15}/></button><span className={familyKnown(x.family,knownIds)?'doneDot':'todoDot'}>{familyKnown(x.family,knownIds)?'✓':familyReview(x.family,reviewIds)?'↻':'•'}</span></div>})}</div>{visible<filtered.length&&<button className="ghost" onClick={()=>setVisible(x=>x+150)}>Cargar 150 más ({filtered.length-visible} restantes)</button>}</>}</div>
+}
