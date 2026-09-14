@@ -1,43 +1,61 @@
 const synth = typeof window !== 'undefined' ? window.speechSynthesis : undefined;
+const mobile = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 function scoreVoice(v: SpeechSynthesisVoice) {
   const name = v.name.toLowerCase();
+  const uri = (v.voiceURI || '').toLowerCase();
   const lang = v.lang.toLowerCase();
   let score = 0;
 
-  if (lang === 'de-de') score += 100;
-  else if (lang.startsWith('de')) score += 70;
+  if (lang === 'de-de') score += 110;
+  else if (lang.startsWith('de')) score += 75;
   else return -1000;
 
-  // Prefer the same high-quality voices that already sound natural on single words.
-  if (name.includes('natural')) score += 80;
-  if (name.includes('neural')) score += 75;
-  if (name.includes('premium')) score += 70;
-  if (name.includes('enhanced')) score += 65;
-  if (name.includes('google deutsch')) score += 58;
-  if (name.includes('katja')) score += 55;
-  if (name.includes('conrad')) score += 52;
-  if (name.includes('microsoft')) score += 42;
-  if (name.includes('google')) score += 35;
-  if (!v.localService) score += 10;
+  // Quality markers exposed by Windows/Chromium and some Android engines.
+  if (name.includes('natural')) score += 100;
+  if (name.includes('neural')) score += 95;
+  if (name.includes('premium')) score += 90;
+  if (name.includes('enhanced')) score += 85;
+
+  // High quality German voices commonly exposed by the major OSes.
+  if (name.includes('katja')) score += 82;
+  if (name.includes('conrad')) score += 78;
+  if (name.includes('anna')) score += 80;
+  if (name.includes('petra')) score += 76;
+  if (name.includes('helena')) score += 74;
+  if (name.includes('markus')) score += 72;
+  if (name.includes('yannick')) score += 70;
+  if (name.includes('siri')) score += 88;
+  if (name.includes('google deutsch')) score += 70;
+  if (name.includes('microsoft')) score += 52;
+  if (name.includes('google')) score += 42;
+  if (name.includes('apple') || uri.includes('apple')) score += 38;
+
+  // Compact / legacy engines are usually the robotic voices users notice on mobile.
+  if (/compact|eloquence|espeak|pico|svox|festival/.test(`${name} ${uri}`)) score -= 120;
+  if (mobile && !v.localService && /natural|neural|premium|enhanced/.test(name)) score += 20;
 
   return score;
 }
 
 function bestGermanVoice() {
   if (!synth) return undefined;
-  return [...synth.getVoices()]
+  const ranked = [...synth.getVoices()]
     .filter(v => v.lang.toLowerCase().startsWith('de'))
-    .sort((a, b) => scoreVoice(b) - scoreVoice(a))[0];
+    .sort((a, b) => scoreVoice(b) - scoreVoice(a));
+  if (!ranked.length) return undefined;
+
+  // On phones, do not force a clearly low-quality compact voice. Let the OS default
+  // German voice handle it instead; iOS/Android often choose a better downloaded voice.
+  if (mobile && scoreVoice(ranked[0]) < 105) return undefined;
+  return ranked[0];
 }
 
 function naturalRate(requested: number) {
-  // Listening has two explicit modes in the UI: normal (.82) and slow (.62).
-  // Keep that distinction, but avoid the stretched synthetic sound caused by
-  // extremely slow browser TTS playback.
-  if (requested < 0.68) return 0.78;
-  if (requested < 0.8) return 0.88;
-  return 0.96;
+  // A slightly slower mobile rate sounds substantially less synthetic on short words.
+  if (requested < 0.68) return mobile ? 0.74 : 0.78;
+  if (requested < 0.8) return mobile ? 0.84 : 0.88;
+  return mobile ? 0.90 : 0.96;
 }
 
 function tune(u: SpeechSynthesisUtterance, requestedRate = u.rate) {
@@ -45,7 +63,7 @@ function tune(u: SpeechSynthesisUtterance, requestedRate = u.rate) {
   u.lang = 'de-DE';
   const v = bestGermanVoice();
   if (v) u.voice = v;
-  u.pitch = 1;
+  u.pitch = mobile ? 1.02 : 1;
   u.volume = 1;
   u.rate = naturalRate(requestedRate);
 }
@@ -55,9 +73,6 @@ function splitForNaturalProsody(text: string) {
   if (!clean) return [];
   if (clean.length <= 75) return [clean];
 
-  // Long Web Speech utterances often become flat/robotic. Feed the exact same
-  // natural German voice short sentence/clause-sized units instead. Punctuation
-  // stays attached so the TTS engine still produces a real pause/intonation.
   const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
   const chunks: string[] = [];
   for (const sentence of sentences) {
@@ -85,10 +100,10 @@ function splitForNaturalProsody(text: string) {
 
 if (synth) {
   const originalSpeak = synth.speak.bind(synth);
-  let voicesReady = synth.getVoices().length > 0;
+  let voicesReady = synth.getVoices().some(v => v.lang.toLowerCase().startsWith('de'));
 
   const refresh = () => {
-    voicesReady = synth.getVoices().length > 0;
+    voicesReady = synth.getVoices().some(v => v.lang.toLowerCase().startsWith('de'));
   };
   synth.addEventListener?.('voiceschanged', refresh);
 
@@ -110,8 +125,8 @@ if (synth) {
       part.pitch = source.pitch;
       part.volume = source.volume;
       tune(part, requestedRate);
-      part.onend = () => window.setTimeout(next, 80);
-      part.onerror = () => window.setTimeout(next, 40);
+      part.onend = () => window.setTimeout(next, mobile ? 110 : 80);
+      part.onerror = () => window.setTimeout(next, 50);
       originalSpeak(part);
     };
     next();
@@ -123,18 +138,20 @@ if (synth) {
       else originalSpeak(u);
     };
 
-    if (voicesReady || synth.getVoices().length) {
+    if (voicesReady || synth.getVoices().some(v => v.lang.toLowerCase().startsWith('de'))) {
       voicesReady = true;
       run();
       return;
     }
 
-    // Chromium/Windows often exposes the better German voices shortly after load.
+    // Mobile browsers often expose downloaded system voices noticeably later than desktop.
+    // Wait a little longer before falling back so iPhone/iPad can surface the natural voice.
     const started = Date.now();
+    const maxWait = mobile ? 2600 : 1200;
     const timer = window.setInterval(() => {
-      if (synth.getVoices().length || Date.now() - started > 1200) {
+      if (synth.getVoices().some(v => v.lang.toLowerCase().startsWith('de')) || Date.now() - started > maxWait) {
         window.clearInterval(timer);
-        voicesReady = synth.getVoices().length > 0;
+        refresh();
         run();
       }
     }, 80);
