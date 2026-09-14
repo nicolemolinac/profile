@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import DateTime, Integer, JSON, create_engine
@@ -45,9 +45,15 @@ Base.metadata.create_all(engine)
 app = FastAPI(title="Private German B1 Coach")
 
 
+def _service_request_allowed(request: Request) -> bool:
+    expected = os.getenv("SERVICE_TOKEN", "")
+    supplied = request.headers.get("x-service-token", "")
+    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+
+
 @app.middleware("http")
 async def private_basic_auth(request: Request, call_next):
-    if request.url.path == "/health":
+    if request.url.path == "/health" or _service_request_allowed(request):
         return await call_next(request)
 
     username = os.getenv("APP_USERNAME", "")
