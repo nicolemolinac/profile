@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: german-b1-coach
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./telc-b1-coach/Dockerfile
+    dockerContext: ./telc-b1-coach
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_USERNAME
+        sync: false
+      - key: APP_PASSWORD
+        sync: false
