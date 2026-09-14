@@ -1,4 +1,5 @@
 import type {CorpusWord} from './corpus';
+import{EXAM_BOOST_WORDS}from'./examVocabBoost';
 
 export type VocabFamily={
  id:string; lemma:string; forms:string[]; freq:number; speaking:number; writing:number; listening:number; rank:number; roi:number; members:CorpusWord[];
@@ -45,7 +46,6 @@ export function familyLemma(word:string,known:Set<string>){
  const w=clean(word); if(!w)return w;
  if(IRREGULAR[w])return IRREGULAR[w];
  if(NOUN_IRREGULAR[w])return NOUN_IRREGULAR[w];
- // Prefer an actual corpus lemma. Conservative rules avoid merging unrelated words.
  const candidates:string[]=[];
  if(w.startsWith('ge')&&w.endsWith('t')&&w.length>5)candidates.push(w.slice(2,-1)+'en');
  if(w.startsWith('ge')&&w.endsWith('en')&&w.length>6)candidates.push(w.slice(2));
@@ -75,9 +75,13 @@ function displayForms(lemma:string,members:CorpusWord[]){
 }
 
 export function groupCorpusFamilies(rows:CorpusWord[]):VocabFamily[]{
- const known=new Set(rows.map(x=>clean(x.de)));
+ // Add only genuinely absent exam words: existing corpus rows always win, so
+ // frequencies are never double-counted just because a boost word was already present.
+ const seen=new Set(rows.map(x=>clean(x.de)));
+ const all=[...rows,...EXAM_BOOST_WORDS.filter(x=>!seen.has(clean(x.de)))];
+ const known=new Set(all.map(x=>clean(x.de)));
  const groups=new Map<string,CorpusWord[]>();
- for(const row of rows){const lemma=familyLemma(row.de,known);const a=groups.get(lemma)||[];a.push(row);groups.set(lemma,a)}
+ for(const row of all){const lemma=familyLemma(row.de,known);const a=groups.get(lemma)||[];a.push(row);groups.set(lemma,a)}
  return [...groups.entries()].map(([lemma,members])=>({
    id:`f:${lemma}`,lemma,forms:displayForms(lemma,members),members,
    freq:members.reduce((n,x)=>n+x.freq,0),speaking:members.reduce((n,x)=>n+x.speaking,0),writing:members.reduce((n,x)=>n+x.writing,0),listening:members.reduce((n,x)=>n+x.listening,0),
