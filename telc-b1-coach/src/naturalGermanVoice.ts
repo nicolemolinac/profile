@@ -9,15 +9,17 @@ function scoreVoice(v: SpeechSynthesisVoice) {
   else if (lang.startsWith('de')) score += 70;
   else return -1000;
 
-  if (name.includes('natural')) score += 60;
-  if (name.includes('neural')) score += 55;
-  if (name.includes('premium')) score += 50;
-  if (name.includes('google deutsch')) score += 45;
-  if (name.includes('katja')) score += 42;
-  if (name.includes('conrad')) score += 38;
-  if (name.includes('microsoft')) score += 30;
-  if (name.includes('google')) score += 25;
-  if (!v.localService) score += 8;
+  // Prefer the same high-quality voices that already sound natural on single words.
+  if (name.includes('natural')) score += 80;
+  if (name.includes('neural')) score += 75;
+  if (name.includes('premium')) score += 70;
+  if (name.includes('enhanced')) score += 65;
+  if (name.includes('google deutsch')) score += 58;
+  if (name.includes('katja')) score += 55;
+  if (name.includes('conrad')) score += 52;
+  if (name.includes('microsoft')) score += 42;
+  if (name.includes('google')) score += 35;
+  if (!v.localService) score += 10;
 
   return score;
 }
@@ -29,20 +31,56 @@ function bestGermanVoice() {
     .sort((a, b) => scoreVoice(b) - scoreVoice(a))[0];
 }
 
-function tune(u: SpeechSynthesisUtterance) {
+function naturalRate(requested: number) {
+  // Listening has two explicit modes in the UI: normal (.82) and slow (.62).
+  // Keep that distinction, but avoid the stretched synthetic sound caused by
+  // extremely slow browser TTS playback.
+  if (requested < 0.68) return 0.78;
+  if (requested < 0.8) return 0.88;
+  return 0.96;
+}
+
+function tune(u: SpeechSynthesisUtterance, requestedRate = u.rate) {
   if (!u.lang || !u.lang.toLowerCase().startsWith('de')) return;
   u.lang = 'de-DE';
   const v = bestGermanVoice();
   if (v) u.voice = v;
   u.pitch = 1;
   u.volume = 1;
+  u.rate = naturalRate(requestedRate);
+}
 
-  // The app used 0.82 as its normal speed, which sounds unnaturally slow
-  // with many browser voices. Keep a real slow mode, but make normal mode
-  // closer to conversational TELC German.
-  if (u.rate >= 0.8) u.rate = 0.96;
-  else if (u.rate >= 0.68) u.rate = 0.82;
-  else u.rate = 0.72;
+function splitForNaturalProsody(text: string) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (!clean) return [];
+  if (clean.length <= 75) return [clean];
+
+  // Long Web Speech utterances often become flat/robotic. Feed the exact same
+  // natural German voice short sentence/clause-sized units instead. Punctuation
+  // stays attached so the TTS engine still produces a real pause/intonation.
+  const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
+  const chunks: string[] = [];
+  for (const sentence of sentences) {
+    const s = sentence.trim();
+    if (s.length <= 115) {
+      chunks.push(s);
+      continue;
+    }
+    const clauses = s.match(/[^,;:]+[,;:]?|[^,;:]+$/g) || [s];
+    let current = '';
+    for (const clause of clauses) {
+      const c = clause.trim();
+      if (!c) continue;
+      if (current && `${current} ${c}`.length > 105) {
+        chunks.push(current);
+        current = c;
+      } else {
+        current = current ? `${current} ${c}` : c;
+      }
+    }
+    if (current) chunks.push(current);
+  }
+  return chunks.filter(Boolean);
 }
 
 if (synth) {
@@ -54,10 +92,38 @@ if (synth) {
   };
   synth.addEventListener?.('voiceschanged', refresh);
 
+  function speakGermanNaturally(source: SpeechSynthesisUtterance) {
+    const requestedRate = source.rate;
+    const pieces = splitForNaturalProsody(source.text);
+    if (pieces.length <= 1) {
+      tune(source, requestedRate);
+      originalSpeak(source);
+      return;
+    }
+
+    let index = 0;
+    const next = () => {
+      if (index >= pieces.length) {
+        source.onend?.(new SpeechSynthesisEvent('end', { utterance: source }));
+        return;
+      }
+      const part = new SpeechSynthesisUtterance(pieces[index++]);
+      part.lang = 'de-DE';
+      part.rate = requestedRate;
+      part.pitch = source.pitch;
+      part.volume = source.volume;
+      tune(part, requestedRate);
+      part.onend = () => window.setTimeout(next, 80);
+      part.onerror = () => window.setTimeout(next, 40);
+      originalSpeak(part);
+    };
+    next();
+  }
+
   synth.speak = ((u: SpeechSynthesisUtterance) => {
     const run = () => {
-      tune(u);
-      originalSpeak(u);
+      if (u.lang?.toLowerCase().startsWith('de')) speakGermanNaturally(u);
+      else originalSpeak(u);
     };
 
     if (voicesReady || synth.getVoices().length) {
@@ -66,10 +132,10 @@ if (synth) {
       return;
     }
 
-    // Chromium/Windows often loads voices a fraction later.
+    // Chromium/Windows often exposes the better German voices shortly after load.
     const started = Date.now();
     const timer = window.setInterval(() => {
-      if (synth.getVoices().length || Date.now() - started > 900) {
+      if (synth.getVoices().length || Date.now() - started > 1200) {
         window.clearInterval(timer);
         voicesReady = synth.getVoices().length > 0;
         run();
