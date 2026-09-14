@@ -103,10 +103,7 @@ if (synth) {
 
     let index = 0;
     const next = () => {
-      if (index >= pieces.length) {
-        source.onend?.(new SpeechSynthesisEvent('end', { utterance: source }));
-        return;
-      }
+      if (index >= pieces.length) return;
       const part = new SpeechSynthesisUtterance(pieces[index++]);
       part.lang = 'de-DE';
       part.rate = requestedRate;
