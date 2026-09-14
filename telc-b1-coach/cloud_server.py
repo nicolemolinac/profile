@@ -119,3 +119,8 @@ def save_progress(payload: ProgressIn):
 frontend_dist = Path(os.getenv("FRONTEND_DIST", Path(__file__).resolve().parent / "dist"))
 if frontend_dist.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "10000")))
