@@ -8,6 +8,7 @@ import'./feedbackSounds';
 import'./neutralLatam';
 import'./vellaCoach';
 import{bootstrapCompleteTranslations}from'./translationFallback';
+import{bootstrapCloudProgress,installCloudProgressSync}from'./cloudProgress';
 
 function esc(message:string){return message.replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]||m))}
 function showFatal(message:string){
@@ -30,6 +31,10 @@ async function boot(){
       }
     }
 
+    // Hydrate cloud progress before App reads localStorage, so the exact existing
+    // telcb1 state is preserved instead of booting with defaults on a new device.
+    await bootstrapCloudProgress();
+
     // Finish and quality-check the complete German→Spanish vocabulary before the
     // UI reads it. Official TELC Spanish wording wins wherever TELC publishes it.
     await bootstrapCompleteTranslations();
@@ -41,6 +46,7 @@ async function boot(){
     await import('./fullSpeakingTraining');
     const{default:App}=await import('./App');
     createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
+    installCloudProgressSync();
   }catch(err:any){
     console.error('TELC B1 boot error',err);
     showFatal(err?.stack||err?.message||String(err));
