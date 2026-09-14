@@ -5,12 +5,6 @@ let remoteReady=false
 let applyingRemote=false
 let lastSent=''
 
-function readLocal(){
-  const raw=localStorage.getItem(KEY)
-  if(!raw)return null
-  try{return JSON.parse(raw)}catch{return null}
-}
-
 async function fetchRemote():Promise<CloudProgressResponse>{
   const r=await fetch('/api/progress',{headers:{Accept:'application/json'}})
   if(!r.ok)throw new Error(`German cloud progress GET failed (${r.status})`)
@@ -25,6 +19,11 @@ async function pushRaw(raw:string){
   if(!r.ok)throw new Error(`German cloud progress POST failed (${r.status})`)
   lastSent=raw
   remoteReady=true
+}
+
+function whenBodyReady(fn:()=>void){
+  if(document.body)fn()
+  else window.addEventListener('DOMContentLoaded',fn,{once:true})
 }
 
 function styleButton(button:HTMLButtonElement){
@@ -77,7 +76,7 @@ function addCloudImportButton(){
 export async function bootstrapCloudProgress(){
   const localHost=location.hostname==='localhost'||location.hostname==='127.0.0.1'
   if(localHost){
-    window.addEventListener('DOMContentLoaded',addLocalExportButton,{once:true})
+    whenBodyReady(addLocalExportButton)
     return
   }
 
@@ -102,12 +101,12 @@ export async function bootstrapCloudProgress(){
     console.warn('German cloud progress bootstrap failed',err)
   }
 
-  window.addEventListener('DOMContentLoaded',addCloudImportButton,{once:true})
+  whenBodyReady(addCloudImportButton)
 }
 
 export function installCloudProgressSync(){
   const localHost=location.hostname==='localhost'||location.hostname==='127.0.0.1'
-  if(localHost){addLocalExportButton();return}
+  if(localHost){whenBodyReady(addLocalExportButton);return}
 
   let lastObserved=localStorage.getItem(KEY)||''
   window.setInterval(()=>{
