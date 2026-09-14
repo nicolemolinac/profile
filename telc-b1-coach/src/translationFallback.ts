@@ -1,5 +1,6 @@
 import{loadCorpusWords,loadSpanishMap}from'./corpus';
 import{officialTelcSpanish}from'./telcOfficialSpanish';
+import{EXAM_BOOST_ES}from'./examVocabBoost';
 
 const FALLBACK_CACHE='telcb1-complete-es-v3';
 const CORPUS_CACHE='telcb1-corpus-es-v6';
@@ -25,7 +26,8 @@ async function worker(queue:string[],cache:Record<string,string>){
 }
 
 export async function completeSpanishTranslations(words:{de:string}[],existing:Record<string,string>){
- const out:Record<string,string>={...existing};
+ // Curated exam glosses are static and win over stale/browser-generated values.
+ const out:Record<string,string>={...existing,...EXAM_BOOST_ES};
  let official=0,common=0,existingKept=0,fallback=0;
  for(const w of words){
   const k=key(w.de),telc=officialTelcSpanish(w.de),commonGloss=COMMON_B1[k]||COMMON_B1[k.replace(/^sich\s+/,'')];
@@ -33,10 +35,10 @@ export async function completeSpanishTranslations(words:{de:string}[],existing:R
   if(commonGloss){out[k]=commonGloss;common++;continue}
   if(out[k]&&!suspicious(w.de,out[k]))existingKept++;else delete out[k];
  }
+ // Re-apply the manually checked exam translations after the generic audit.
+ Object.assign(out,EXAM_BOOST_ES);
  const cache=read(FALLBACK_CACHE);
  let queue=words.filter(w=>!out[key(w.de)]&&!cache[key(w.de)]).map(w=>w.de);
- // Two passes: transient CORS/network/rate-limit failures must not permanently
- // strand words as "Sin traducción" in the study queue.
  for(let pass=0;pass<2&&queue.length;pass++){
   const pending=[...queue];
   await Promise.all(Array.from({length:Math.min(4,pending.length)},()=>worker(pending,cache)));
@@ -44,8 +46,9 @@ export async function completeSpanishTranslations(words:{de:string}[],existing:R
  }
  save(FALLBACK_CACHE,cache);
  for(const w of words){const k=key(w.de);if(!out[k]&&cache[k]&&!suspicious(w.de,cache[k])){out[k]=cache[k];fallback++}}
+ Object.assign(out,EXAM_BOOST_ES);
  const missing=words.filter(w=>!out[key(w.de)]).map(w=>w.de);
- save(AUDIT_KEY,{checked:words.length,translated:words.length-missing.length,missing,official,common,existingKept,fallback,generatedAt:new Date().toISOString(),reference:'telc Einfach gut! B1.1/B1.2 Spanish vocabulary lists'});
+ save(AUDIT_KEY,{checked:words.length,translated:words.length-missing.length,missing,official,common,existingKept,fallback,generatedAt:new Date().toISOString(),reference:'telc Einfach gut! B1.1/B1.2 Spanish vocabulary lists + curated user exam corpus'});
  save(CORPUS_CACHE,out);
  return out;
 }
@@ -54,10 +57,11 @@ export function getTranslationQualityAudit(){try{return JSON.parse(localStorage.
 
 export async function bootstrapCompleteTranslations(){
  const words=await loadCorpusWords();
- const current=read(CORPUS_CACHE);
+ const current={...read(CORPUS_CACHE),...EXAM_BOOST_ES};
  const currentMissing=words.filter(w=>!current[key(w.de)]).length;
  if(currentMissing===0){
-  save(AUDIT_KEY,{checked:words.length,translated:words.length,missing:[],generatedAt:new Date().toISOString(),reference:'cached complete corpus'});
+  save(CORPUS_CACHE,current);
+  save(AUDIT_KEY,{checked:words.length,translated:words.length,missing:[],generatedAt:new Date().toISOString(),reference:'cached complete corpus + curated user exam corpus'});
   return current;
  }
  const base=Object.keys(current).length?current:await loadSpanishMap(words);
