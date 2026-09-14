@@ -7,6 +7,7 @@ import'./naturalGermanVoice';
 import'./feedbackSounds';
 import'./neutralLatam';
 import'./vellaCoach';
+import{bootstrapCompleteTranslations}from'./translationFallback';
 
 function esc(message:string){return message.replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]||m))}
 function showFatal(message:string){
@@ -28,6 +29,10 @@ async function boot(){
         window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
       }
     }
+
+    // Finish and quality-check the complete German→Spanish vocabulary before the
+    // UI reads it. Official TELC Spanish wording wins wherever TELC publishes it.
+    await bootstrapCompleteTranslations();
 
     // Load the large exam banks before App so any module/runtime problem is caught here
     // instead of leaving a blank page.
