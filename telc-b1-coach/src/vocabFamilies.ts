@@ -1,5 +1,6 @@
 import type {CorpusWord} from './corpus';
 import{EXAM_BOOST_WORDS}from'./examVocabBoost';
+import{TELC_COVERAGE_WORDS}from'./telcCoverageBoost';
 
 export type VocabFamily={
  id:string; lemma:string; forms:string[]; freq:number; speaking:number; writing:number; listening:number; rank:number; roi:number; members:CorpusWord[];
@@ -75,10 +76,13 @@ function displayForms(lemma:string,members:CorpusWord[]){
 }
 
 export function groupCorpusFamilies(rows:CorpusWord[]):VocabFamily[]{
- // Add only genuinely absent exam words: existing corpus rows always win, so
- // frequencies are never double-counted just because a boost word was already present.
+ // Keep every original corpus row. Add practice-exam and official TELC coverage
+ // only when the concept is genuinely absent; nothing is deleted for optimization.
  const seen=new Set(rows.map(x=>clean(x.de)));
- const all=[...rows,...EXAM_BOOST_WORDS.filter(x=>!seen.has(clean(x.de)))];
+ const examExtra=EXAM_BOOST_WORDS.filter(x=>!seen.has(clean(x.de)));
+ examExtra.forEach(x=>seen.add(clean(x.de)));
+ const telcExtra=TELC_COVERAGE_WORDS.filter(x=>!seen.has(clean(x.de)));
+ const all=[...rows,...examExtra,...telcExtra];
  const known=new Set(all.map(x=>clean(x.de)));
  const groups=new Map<string,CorpusWord[]>();
  for(const row of all){const lemma=familyLemma(row.de,known);const a=groups.get(lemma)||[];a.push(row);groups.set(lemma,a)}
@@ -86,5 +90,5 @@ export function groupCorpusFamilies(rows:CorpusWord[]):VocabFamily[]{
    id:`f:${lemma}`,lemma,forms:displayForms(lemma,members),members,
    freq:members.reduce((n,x)=>n+x.freq,0),speaking:members.reduce((n,x)=>n+x.speaking,0),writing:members.reduce((n,x)=>n+x.writing,0),listening:members.reduce((n,x)=>n+x.listening,0),
    rank:Math.min(...members.map(x=>x.rank)),roi:Math.max(...members.map(x=>x.roi))
- })).sort((a,b)=>b.freq-a.freq||b.roi-a.roi||a.rank-b.rank).map((x,i)=>({...x,rank:i+1}));
+ })).sort((a,b)=>b.roi-a.roi||b.listening-a.listening||b.freq-a.freq||a.rank-b.rank).map((x,i)=>({...x,rank:i+1}));
 }
