@@ -1,1 +1,3 @@
-export const DISPLAYED_AUDIT_FIX:Record<string,string>={'bestätigung':'confirmación','eintritt':'entrada / acceso'};
+export const DISPLAYED_AUDIT_FIX:Record<string,string>={
+'bestätigung':'confirmación','eintritt':'entrada / acceso','gültigkeit':'validez','öffnungszeiten':'horario de apertura','rückgabe':'devolución','umleitung':'desvío','voraussetzung':'requisito / condición previa','bestätigen':'confirmar','geändert':'cambiado / modificado','nicht mehr':'ya no','noch nicht':'todavía no','erst ab':'solo a partir de','bis spätestens':'como máximo hasta / a más tardar el','mehr als':'más de','weniger als':'menos de','sowohl als auch':'tanto … como','weder noch':'ni … ni','nicht nur sondern auch':'no solo … sino también','fällt aus':'se cancela / no se realiza','findet statt':'tiene lugar / se realiza','bescheid geben':'avisar / informar','behörde':'autoridad / oficina pública','führerschein':'licencia de conducir'
+};
