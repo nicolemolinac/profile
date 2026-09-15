@@ -8,6 +8,7 @@ import'./feedbackSounds';
 import'./neutralLatam';
 import'./vellaCoach';
 import'./listeningPowerCoach';
+import'./persistentExerciseHistory';
 import{bootstrapCompleteTranslations}from'./translationFallback';
 import{bootstrapCloudProgress,installCloudProgressSync}from'./cloudProgress';
 
