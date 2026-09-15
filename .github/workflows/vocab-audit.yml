@@ -8,6 +8,7 @@ on:
       - 'telc-b1-coach/src/corpus.ts'
       - 'telc-b1-coach/src/telcOfficialSpanish.ts'
       - 'telc-b1-coach/src/translationFallback.ts'
+      - 'telc-b1-coach/src/verifiedSpanishAudit.ts'
       - 'telc-b1-coach/src/examVocabBoost.ts'
       - 'telc-b1-coach/src/telcCoverageBoost.ts'
       - '.github/workflows/vocab-audit.yml'
