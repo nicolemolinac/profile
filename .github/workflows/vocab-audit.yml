@@ -3,8 +3,13 @@ on:
   push:
     branches: [telc-b1-pass-coach]
     paths:
-      - 'telc-b1-coach/scripts/export-vocab-audit.mjs'
+      - 'telc-b1-coach/scripts/**'
       - 'telc-b1-coach/src/corpus/**'
+      - 'telc-b1-coach/src/corpus.ts'
+      - 'telc-b1-coach/src/telcOfficialSpanish.ts'
+      - 'telc-b1-coach/src/translationFallback.ts'
+      - 'telc-b1-coach/src/examVocabBoost.ts'
+      - 'telc-b1-coach/src/telcCoverageBoost.ts'
       - '.github/workflows/vocab-audit.yml'
   workflow_dispatch:
 jobs:
@@ -17,10 +22,16 @@ jobs:
           node-version: '20'
       - name: Decode and export complete corpus
         run: node telc-b1-coach/scripts/export-vocab-audit.mjs
-      - name: Show audit summary
-        run: cat telc-b1-coach/audit-output/summary.json
+      - name: Audit curated Spanish coverage
+        run: node telc-b1-coach/scripts/audit-spanish-coverage.mjs
+      - name: Show audit summaries
+        run: |
+          cat telc-b1-coach/audit-output/summary.json
+          cat telc-b1-coach/audit/spanish-summary.json
       - uses: actions/upload-artifact@v4
         with:
           name: telc-vocab-audit
-          path: telc-b1-coach/audit-output/
+          path: |
+            telc-b1-coach/audit-output/
+            telc-b1-coach/audit/
           retention-days: 7
