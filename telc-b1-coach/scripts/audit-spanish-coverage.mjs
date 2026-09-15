@@ -6,6 +6,7 @@ const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 let b64='';for(let i=1;i<=7;i++){const m=read(`src/corpus/part${i}.ts`).match(/export default `([\s\S]*?)`;/);if(!m)throw Error(`part${i}`);b64+=m[1]}
 const rows=zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8').split(/\r?\n/).filter(Boolean).map((line,i)=>{const[de,f='0',s='0',w='0',l='0']=line.split('|');return{index:i+1,de,f:+f,s:+s,w:+w,l:+l}});
 const sources=[
+ ['HUMAN_AUDIT','src/verifiedSpanishAudit.ts'],
  ['TELC_OFFICIAL','src/telcOfficialSpanish.ts'],
  ['CORPUS_CURATED','src/corpus.ts'],
  ['FALLBACK_CURATED','src/translationFallback.ts'],
