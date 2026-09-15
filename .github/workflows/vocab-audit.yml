@@ -1,0 +1,26 @@
+name: TELC vocabulary audit
+on:
+  push:
+    branches: [telc-b1-pass-coach]
+    paths:
+      - 'telc-b1-coach/scripts/export-vocab-audit.mjs'
+      - 'telc-b1-coach/src/corpus/**'
+      - '.github/workflows/vocab-audit.yml'
+  workflow_dispatch:
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Decode and export complete corpus
+        run: node telc-b1-coach/scripts/export-vocab-audit.mjs
+      - name: Show audit summary
+        run: cat telc-b1-coach/audit-output/summary.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: telc-vocab-audit
+          path: telc-b1-coach/audit-output/
+          retention-days: 7
