@@ -9,10 +9,11 @@ import{VERIFIED_SPANISH_AUDIT_LARGE2}from'./verifiedSpanishAuditLarge2';
 import{VERIFIED_SPANISH_AUDIT_LARGE3}from'./verifiedSpanishAuditLarge3';
 import{VERIFIED_SPANISH_AUDIT_LARGE4}from'./verifiedSpanishAuditLarge4';
 import{VERIFIED_SPANISH_AUDIT_LARGE5}from'./verifiedSpanishAuditLarge5';
+import{VERIFIED_SPANISH_AUDIT_QC}from'./verifiedSpanishAuditQC';
 
-const FALLBACK_CACHE='telcb1-complete-es-v12';
-const CORPUS_CACHE='telcb1-corpus-es-v14';
-const AUDIT_KEY='telcb1-translation-qc-v12';
+const FALLBACK_CACHE='telcb1-complete-es-v13';
+const CORPUS_CACHE='telcb1-corpus-es-v15';
+const AUDIT_KEY='telcb1-translation-qc-v13';
 const GOOGLE='https://translate.googleapis.com/translate_a/single?client=gtx&sl=de&tl=es&dt=t&q=';
 const MYMEMORY='https://api.mymemory.translated.net/get?langpair=de%7Ces&q=';
 function key(de:string){return de.toLocaleLowerCase('de-DE').trim()}
@@ -28,10 +29,10 @@ async function translateBrowser(de:string){try{const T=(globalThis as any).Trans
 async function translateOne(de:string){try{const a=await translateGoogle(de);if(!suspicious(de,a))return a}catch{}try{const b=await translateMemory(de);if(!suspicious(de,b))return b}catch{}const c=await translateBrowser(de);if(c)return c;return''}
 async function worker(queue:string[],cache:Record<string,string>){while(queue.length){const de=queue.shift()!,k=key(de);if(cache[k])continue;const es=await translateOne(de);if(es)cache[k]=es}}
 export async function completeSpanishTranslations(words:{de:string}[],existing:Record<string,string>){
- const all=targets(words),human={...VERIFIED_SPANISH_AUDIT,...VERIFIED_SPANISH_AUDIT_LARGE,...VERIFIED_SPANISH_AUDIT_LARGE2,...VERIFIED_SPANISH_AUDIT_LARGE3,...VERIFIED_SPANISH_AUDIT_LARGE4,...VERIFIED_SPANISH_AUDIT_LARGE5},staticChecked={...TELC_COVERAGE_ES,...EXAM_BOOST_ES,...human};const out:Record<string,string>={...existing,...staticChecked};let official=0,common=0,existingKept=0,fallback=0,manuallyAudited=0;
+ const all=targets(words),human={...VERIFIED_SPANISH_AUDIT,...VERIFIED_SPANISH_AUDIT_LARGE,...VERIFIED_SPANISH_AUDIT_LARGE2,...VERIFIED_SPANISH_AUDIT_LARGE3,...VERIFIED_SPANISH_AUDIT_LARGE4,...VERIFIED_SPANISH_AUDIT_LARGE5,...VERIFIED_SPANISH_AUDIT_QC},staticChecked={...TELC_COVERAGE_ES,...EXAM_BOOST_ES,...human};const out:Record<string,string>={...existing,...staticChecked};let official=0,common=0,existingKept=0,fallback=0,manuallyAudited=0;
  for(const w of all){const k=key(w.de),telc=officialTelcSpanish(w.de),commonGloss=COMMON_B1[k]||COMMON_B1[k.replace(/^sich\s+/,'')];if(human[k]){out[k]=human[k];manuallyAudited++;continue}if(telc){out[k]=telc;official++;continue}if(staticChecked[k]){out[k]=staticChecked[k];continue}if(commonGloss){out[k]=commonGloss;common++;continue}if(out[k]&&!suspicious(w.de,out[k]))existingKept++;else delete out[k]}
  const cache={...read(FALLBACK_CACHE),...out};for(let pass=0;pass<6;pass++){const missing=all.filter(w=>!cache[key(w.de)]).map(w=>w.de);if(!missing.length)break;const queue=[...missing];await Promise.all(Array.from({length:2},()=>worker(queue,cache)));save(FALLBACK_CACHE,cache);if(pass<5&&queue.length)await new Promise(r=>setTimeout(r,300*(pass+1)))}
  for(const w of all){const k=key(w.de);if(!out[k]&&cache[k]&&!suspicious(w.de,cache[k])){out[k]=cache[k];fallback++}}
- save(FALLBACK_CACHE,out);save(AUDIT_KEY,{checked:all.length,translated:all.filter(w=>!!out[key(w.de)]).length,missing:all.filter(w=>!out[key(w.de)]).length,official,common,existingKept,fallback,manuallyAudited,coverage:all.length?Math.round(all.filter(w=>!!out[key(w.de)]).length/all.length*10000)/100:100,at:new Date().toISOString(),referenceHierarchy:['human audited','official TELC B1 Spanish','curated exam/TELC safety net','reviewed B1','validated existing dictionary','multi-provider fallback']});return out
+ save(FALLBACK_CACHE,out);save(AUDIT_KEY,{checked:all.length,translated:all.filter(w=>!!out[key(w.de)]).length,missing:all.filter(w=>!out[key(w.de)]).length,official,common,existingKept,fallback,manuallyAudited,coverage:all.length?Math.round(all.filter(w=>!!out[key(w.de)]).length/all.length*10000)/100:100,at:new Date().toISOString(),referenceHierarchy:['human audited + semantic QC','official TELC B1 Spanish','curated exam/TELC safety net','reviewed B1','validated existing dictionary','multi-provider fallback']});return out
 }
 export async function bootstrapCompleteTranslations(){const baseWords=await loadCorpusWords();const families=groupCorpusFamilies(baseWords);const displayed=families.flatMap(f=>[{de:f.lemma},...f.forms.map(de=>({de}))]);const all=targets([...baseWords,...displayed]);const base=await loadSpanishMap(all);return await completeSpanishTranslations(all,base)}
