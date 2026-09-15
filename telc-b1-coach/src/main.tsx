@@ -7,6 +7,7 @@ import'./naturalGermanVoice';
 import'./feedbackSounds';
 import'./neutralLatam';
 import'./vellaCoach';
+import'./listeningPowerCoach';
 import{bootstrapCompleteTranslations}from'./translationFallback';
 import{bootstrapCloudProgress,installCloudProgressSync}from'./cloudProgress';
 
@@ -30,30 +31,16 @@ async function boot(){
         window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
       }
     }
-
-    // Only hydrate cloud progress before React. This is fast and preserves the exact
-    // telcb1 state on a new device.
     await bootstrapCloudProgress();
-
-    // Render the UI immediately. The translation completion can make hundreds of
-    // external requests on a fresh browser, so it must never block first paint.
     const{default:App}=await import('./App');
     createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);
     installCloudProgressSync();
-
-    // Warm heavy/optional datasets after the app is already usable.
     void Promise.allSettled([
       bootstrapCompleteTranslations(),
       import('./examCorpus'),
       import('./fullExamTraining'),
       import('./fullSpeakingTraining'),
-    ]).then(results=>{
-      results.forEach(r=>{if(r.status==='rejected')console.warn('German Coach background warmup failed',r.reason)});
-    });
-  }catch(err:any){
-    console.error('TELC B1 boot error',err);
-    showFatal(err?.stack||err?.message||String(err));
-  }
+    ]).then(results=>{results.forEach(r=>{if(r.status==='rejected')console.warn('German Coach background warmup failed',r.reason)})});
+  }catch(err:any){console.error('TELC B1 boot error',err);showFatal(err?.stack||err?.message||String(err))}
 }
-
 boot();
