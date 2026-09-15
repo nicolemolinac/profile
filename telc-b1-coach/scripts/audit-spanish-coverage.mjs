@@ -1,0 +1,24 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import zlib from 'node:zlib';
+const root=path.resolve(process.cwd(),'telc-b1-coach');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+let b64='';for(let i=1;i<=7;i++){const m=read(`src/corpus/part${i}.ts`).match(/export default `([\s\S]*?)`;/);if(!m)throw Error(`part${i}`);b64+=m[1]}
+const rows=zlib.gunzipSync(Buffer.from(b64,'base64')).toString('utf8').split(/\r?\n/).filter(Boolean).map((line,i)=>{const[de,f='0',s='0',w='0',l='0']=line.split('|');return{index:i+1,de,f:+f,s:+s,w:+w,l:+l}});
+const sources=[
+ ['TELC_OFFICIAL','src/telcOfficialSpanish.ts'],
+ ['CORPUS_CURATED','src/corpus.ts'],
+ ['FALLBACK_CURATED','src/translationFallback.ts'],
+ ['EXAM_BOOST','src/examVocabBoost.ts'],
+ ['TELC_COVERAGE','src/telcCoverageBoost.ts']
+];
+const maps=new Map();
+for(const [source,file] of sources){const text=read(file);const re=/'([^'\\]*(?:\\.[^'\\]*)*)'\s*:\s*'([^'\\]*(?:\\.[^'\\]*)*)'/g;let m;while((m=re.exec(text))){const k=m[1].replace(/\\'/g,"'").toLocaleLowerCase('de-DE').trim();const v=m[2].replace(/\\'/g,"'").trim();if(k&&v&&!maps.has(k))maps.set(k,{es:v,source})}}
+const audited=rows.map(r=>{const k=r.de.toLocaleLowerCase('de-DE').trim();const hit=maps.get(k);return{...r,es:hit?.es||'',source:hit?.source||'UNVERIFIED'}});
+const missing=audited.filter(x=>!x.es);
+const suspicious=audited.filter(x=>x.es&&(x.es.toLocaleLowerCase('es-ES')===x.de.toLocaleLowerCase('de-DE')||x.es.length>100||/https?:|<[^>]+>/.test(x.es)));
+const out=path.join(root,'audit');fs.mkdirSync(out,{recursive:true});
+fs.writeFileSync(path.join(out,'spanish-audit.json'),JSON.stringify(audited,null,2)+'\n');
+fs.writeFileSync(path.join(out,'unverified.tsv'),'index\tde\tfreq\tspeaking\twriting\tlistening\n'+missing.map(x=>[x.index,x.de,x.f,x.s,x.w,x.l].join('\t')).join('\n')+'\n');
+fs.writeFileSync(path.join(out,'spanish-summary.json'),JSON.stringify({corpusRows:rows.length,curatedMatches:audited.length-missing.length,unverified:missing.length,suspicious:suspicious.length,sourceCounts:Object.fromEntries(sources.map(([s])=>[s,audited.filter(x=>x.source===s).length]))},null,2)+'\n');
+console.log(fs.readFileSync(path.join(out,'spanish-summary.json'),'utf8'));
