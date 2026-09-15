@@ -3,12 +3,13 @@ import{officialTelcSpanish}from'./telcOfficialSpanish';
 import{EXAM_BOOST_ES,EXAM_BOOST_WORDS}from'./examVocabBoost';
 import{TELC_COVERAGE_ES,TELC_COVERAGE_WORDS}from'./telcCoverageBoost';
 import{groupCorpusFamilies}from'./vocabFamilies';
+import{VERIFIED_SPANISH_AUDIT}from'./verifiedSpanishAudit';
 
 // Bump these whenever translation/QC logic changes. This prevents an old failed
 // mobile-browser translation run from leaving cards permanently untranslated.
-const FALLBACK_CACHE='telcb1-complete-es-v6';
-const CORPUS_CACHE='telcb1-corpus-es-v8';
-const AUDIT_KEY='telcb1-translation-qc-v6';
+const FALLBACK_CACHE='telcb1-complete-es-v7';
+const CORPUS_CACHE='telcb1-corpus-es-v9';
+const AUDIT_KEY='telcb1-translation-qc-v7';
 const GOOGLE='https://translate.googleapis.com/translate_a/single?client=gtx&sl=de&tl=es&dt=t&q=';
 const MYMEMORY='https://api.mymemory.translated.net/get?langpair=de%7Ces&q=';
 
@@ -30,24 +31,21 @@ async function translateOne(de:string){try{const a=await translateGoogle(de);if(
 async function worker(queue:string[],cache:Record<string,string>){while(queue.length){const de=queue.shift()!,k=key(de);if(cache[k])continue;const es=await translateOne(de);if(es)cache[k]=es}}
 
 export async function completeSpanishTranslations(words:{de:string}[],existing:Record<string,string>){
- const all=targets(words),staticChecked={...TELC_COVERAGE_ES,...EXAM_BOOST_ES};const out:Record<string,string>={...existing,...staticChecked};let official=0,common=0,existingKept=0,fallback=0;
- for(const w of all){const k=key(w.de),telc=officialTelcSpanish(w.de),commonGloss=COMMON_B1[k]||COMMON_B1[k.replace(/^sich\s+/,'')];if(telc){out[k]=telc;official++;continue}if(staticChecked[k]){out[k]=staticChecked[k];continue}if(commonGloss){out[k]=commonGloss;common++;continue}if(out[k]&&!suspicious(w.de,out[k]))existingKept++;else delete out[k]}
+ const all=targets(words),staticChecked={...TELC_COVERAGE_ES,...EXAM_BOOST_ES,...VERIFIED_SPANISH_AUDIT};const out:Record<string,string>={...existing,...staticChecked};let official=0,common=0,existingKept=0,fallback=0,manuallyAudited=0;
+ for(const w of all){const k=key(w.de),telc=officialTelcSpanish(w.de),commonGloss=COMMON_B1[k]||COMMON_B1[k.replace(/^sich\s+/,'')];if(VERIFIED_SPANISH_AUDIT[k]){out[k]=VERIFIED_SPANISH_AUDIT[k];manuallyAudited++;continue}if(telc){out[k]=telc;official++;continue}if(staticChecked[k]){out[k]=staticChecked[k];continue}if(commonGloss){out[k]=commonGloss;common++;continue}if(out[k]&&!suspicious(w.de,out[k]))existingKept++;else delete out[k]}
  Object.assign(out,staticChecked);const cache=read(FALLBACK_CACHE);let queue=all.filter(w=>!out[key(w.de)]&&!cache[key(w.de)]).map(w=>w.de);
  for(let pass=0;pass<6&&queue.length;pass++){const pending=[...queue];await Promise.all(Array.from({length:Math.min(2,pending.length)},()=>worker(pending,cache)));queue=queue.filter(de=>!cache[key(de)]);if(queue.length)await new Promise(r=>setTimeout(r,180*(pass+1)))}
  save(FALLBACK_CACHE,cache);for(const w of all){const k=key(w.de);if(!out[k]&&cache[k]&&!suspicious(w.de,cache[k])){out[k]=cache[k];fallback++}}Object.assign(out,staticChecked);
- const missing=all.filter(w=>!out[key(w.de)]).map(w=>w.de);save(AUDIT_KEY,{checked:all.length,translated:all.length-missing.length,missing,official,common,existingKept,fallback,coverage:all.length?Math.round((all.length-missing.length)*10000/all.length)/100:100,generatedAt:new Date().toISOString(),reference:'official TELC B1 > curated exam/TELC safety net > reviewed B1 > validated dictionary > multi-provider fallback'});save(CORPUS_CACHE,out);return out
+ const missing=all.filter(w=>!out[key(w.de)]).map(w=>w.de);save(AUDIT_KEY,{checked:all.length,translated:all.length-missing.length,missing,manuallyAudited,official,common,existingKept,fallback,coverage:all.length?Math.round((all.length-missing.length)*10000/all.length)/100:100,generatedAt:new Date().toISOString(),reference:'manual audit > official TELC B1 > curated exam/TELC safety net > reviewed B1 > validated dictionary > multi-provider fallback'});save(CORPUS_CACHE,out);return out
 }
 
 export function getTranslationQualityAudit(){try{return JSON.parse(localStorage.getItem(AUDIT_KEY)||'null')}catch{return null}}
 export async function bootstrapCompleteTranslations(){
  const baseWords=await loadCorpusWords();
- // IMPORTANT: audit what the learner actually sees, not only the raw corpus rows.
- // Family grouping can create a displayed lemma that is not itself a raw row. Those
- // were the persistent blank cards even when a conjugated member had been processed.
  const families=groupCorpusFamilies(baseWords);
  const displayed= families.flatMap(f=>[{de:f.lemma},...f.forms.map(de=>({de}))]);
  const all=targets([...baseWords,...displayed]);
  const dictionary=await loadSpanishMap(baseWords).catch(()=>({} as Record<string,string>));
- const current={...dictionary,...read(CORPUS_CACHE),...TELC_COVERAGE_ES,...EXAM_BOOST_ES};
+ const current={...dictionary,...read(CORPUS_CACHE),...TELC_COVERAGE_ES,...EXAM_BOOST_ES,...VERIFIED_SPANISH_AUDIT};
  return await completeSpanishTranslations(all,current)
 }
