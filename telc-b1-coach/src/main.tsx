@@ -8,6 +8,8 @@ import'./feedbackSounds';
 import'./neutralLatam';
 import'./vellaCoach';
 import'./listeningPowerCoach';
+import'./fullExamTraining';
+import'./fullSpeakingTraining';
 // Disabled: this legacy DOM MutationObserver rewrites React-owned Frases/Listening nodes
 // and can enter a render/mutation loop when changing tabs. React components now own these views.
 import{bootstrapCompleteTranslations}from'./translationFallback';
@@ -40,8 +42,6 @@ async function boot(){
     void Promise.allSettled([
       bootstrapCompleteTranslations(),
       import('./examCorpus'),
-      import('./fullExamTraining'),
-      import('./fullSpeakingTraining'),
     ]).then(results=>{results.forEach(r=>{if(r.status==='rejected')console.warn('German Coach background warmup failed',r.reason)})});
   }catch(err:any){console.error('TELC B1 boot error',err);showFatal(err?.stack||err?.message||String(err))}
 }
