@@ -37,6 +37,7 @@ function bestGermanVoice() {
   if (!synth) return undefined;
   const ranked = [...synth.getVoices()]
     .filter(v => v.lang.toLowerCase().startsWith('de'))
+    .filter(v => !/compact|eloquence|espeak|pico|svox|festival/.test(`${v.name} ${v.voiceURI || ''}`.toLowerCase()))
     .sort((a, b) => scoreVoice(b) - scoreVoice(a));
   // Important: do not return undefined merely because iOS does not expose a quality
   // label. That made Safari fall back to its generic/compact German voice.
@@ -46,7 +47,7 @@ function bestGermanVoice() {
 function naturalRate(requested: number) {
   if (requested < 0.68) return mobile ? 0.82 : 0.84;
   if (requested < 0.8) return mobile ? 0.88 : 0.90;
-  return mobile ? 0.94 : 0.96;
+  return mobile ? 0.91 : 0.94;
 }
 
 function tune(u: SpeechSynthesisUtterance, requestedRate = u.rate) {
@@ -54,7 +55,8 @@ function tune(u: SpeechSynthesisUtterance, requestedRate = u.rate) {
   u.lang = 'de-DE';
   const v = bestGermanVoice();
   if (v) u.voice = v;
-  u.pitch = 1;
+  // A slightly lower pitch/rate avoids the clipped "navigation voice" effect on iOS.
+  u.pitch = mobile ? 0.98 : 1;
   u.volume = 1;
   u.rate = naturalRate(requestedRate);
 }
