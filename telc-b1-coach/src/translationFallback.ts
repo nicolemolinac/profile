@@ -12,9 +12,8 @@ import{VERIFIED_SPANISH_AUDIT_LARGE5}from'./verifiedSpanishAuditLarge5';
 import{VERIFIED_SPANISH_AUDIT_QC}from'./verifiedSpanishAuditQC';
 import{DISPLAYED_AUDIT_FIX}from'./displayedAuditFix';
 
-const FALLBACK_CACHE='telcb1-complete-es-v15';
-const CORPUS_CACHE='telcb1-corpus-es-v17';
-const AUDIT_KEY='telcb1-translation-qc-v15';
+const FALLBACK_CACHE='telcb1-complete-es-v16';
+const AUDIT_KEY='telcb1-translation-qc-v16';
 const GOOGLE='https://translate.googleapis.com/translate_a/single?client=gtx&sl=de&tl=es&dt=t&q=';
 const MYMEMORY='https://api.mymemory.translated.net/get?langpair=de%7Ces&q=';
 function key(de:string){return de.toLocaleLowerCase('de-DE').trim()}
