@@ -8,7 +8,16 @@ import{groupCorpusFamilies,type VocabFamily}from'./vocabFamilies';
 type View='study'|'all'|'learned'|'review'|'pending';
 type StudyMode='new'|'errors';
 type Card={family:VocabFamily;id:string;de:string;forms:string[];es:string;pron:string;roi:number;rank:number;freq:number;speaking:number;writing:number;listening:number};
-const say=(t:string,r=.82)=>{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='de-DE';u.rate=r;speechSynthesis.speak(u)};
+async function say(t:string,r=.82){
+ try{
+  speechSynthesis.cancel();
+  const audio=new Audio('/api/tts?text='+encodeURIComponent(t));
+  audio.playbackRate=r<.8?.92:1;
+  await audio.play();
+ }catch{
+  const u=new SpeechSynthesisUtterance(t);u.lang='de-DE';u.rate=r;speechSynthesis.speak(u)
+ }
+}
 const familyAudioText=(c:Card)=>[c.de,...c.forms.filter(x=>x.toLocaleLowerCase('de-DE')!==c.de.toLocaleLowerCase('de-DE'))].filter((x,i,a)=>a.findIndex(y=>y.toLocaleLowerCase('de-DE')===x.toLocaleLowerCase('de-DE'))===i).join('. ');
 const sayFamily=(c:Card,r=.78)=>say(familyAudioText(c),r);
 const familyAudio=(e:React.MouseEvent,c:Card)=>{e.preventDefault();e.stopPropagation();sayFamily(c)};
