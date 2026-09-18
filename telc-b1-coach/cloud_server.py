@@ -7,7 +7,9 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
+from urllib.parse import quote
+from urllib.request import Request as UrlRequest, urlopen
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from sqlalchemy import DateTime, Integer, JSON, create_engine
@@ -83,6 +85,21 @@ async def private_basic_auth(request: Request, call_next):
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.get("/api/tts")
+def natural_german_tts(text: str):
+    clean = " ".join(text.split()).strip()[:450]
+    if not clean:
+        return Response(status_code=400)
+    url = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=de&ttsspeed=1&q=" + quote(clean)
+    req = UrlRequest(url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://translate.google.com/"})
+    try:
+        with urlopen(req, timeout=8) as upstream:
+            audio = upstream.read()
+        return Response(content=audio, media_type="audio/mpeg", headers={"Cache-Control": "public, max-age=2592000"})
+    except Exception:
+        return Response(status_code=503)
 
 
 @app.get("/api/progress")
