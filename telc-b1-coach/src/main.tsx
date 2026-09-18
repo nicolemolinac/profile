@@ -8,7 +8,8 @@ import'./feedbackSounds';
 import'./neutralLatam';
 import'./vellaCoach';
 import'./listeningPowerCoach';
-import'./persistentExerciseHistory';
+// Disabled: this legacy DOM MutationObserver rewrites React-owned Frases/Listening nodes
+// and can enter a render/mutation loop when changing tabs. React components now own these views.
 import{bootstrapCompleteTranslations}from'./translationFallback';
 import{bootstrapCloudProgress,installCloudProgressSync}from'./cloudProgress';
 
