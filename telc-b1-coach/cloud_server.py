@@ -125,22 +125,28 @@ def german_to_literal_spanish(text: str):
     clean = " ".join(text.split()).strip()[:900]
     if not clean:
         return Response(status_code=400)
-    # Google provides the lexical Spanish; preserve German clause order with a deterministic scaffold.
-    url = "https://translate.googleapis.com/translate_a/single?" + urlencode({"client":"gtx","sl":"de","tl":"es","dt":"t","q":clean})
-    req = UrlRequest(url, headers={"User-Agent": "Mozilla/5.0"})
-    try:
-        import json
-        with urlopen(req, timeout=8) as upstream:
-            payload = json.loads(upstream.read().decode("utf-8"))
-        natural = "".join((part[0] or "") for part in (payload[0] or []))
-        # Mark final-verb subordinate clauses explicitly; the UI is a word-order scaffold, not prose translation.
-        pairs = [("dass","que"),("weil","porque"),("ob","si"),("wenn","si/cuando"),("obwohl","aunque"),("damit","para que"),("bevor","antes de que"),("nachdem","después de que"),("sobald","tan pronto como"),("während","mientras")]
-        cue = next(((de,es) for de,es in pairs if (" "+de+" ") in (" "+clean.lower()+" ")), None)
-        if cue:
-            return {"es": natural + "  ·  MOLDE: [principal] + " + cue[1] + " + [sujeto/complementos] + [VERBO AL FINAL]"}
-        return {"es": natural}
-    except Exception:
-        return Response(status_code=503)
+    # This endpoint must never depend on an external translator: the drill needs a stable scaffold.
+    # Preserve the German clause shape explicitly and translate the structural connectors.
+    structural = clean
+    replacements = [
+        ("Warum ", "Por qué "), (" sollte ", " debería "), (" der ", " el "), (" die ", " la "),
+        (" das ", " eso "), (" dann ", " entonces "), (" suchen", " buscar"), (" wenn ", " si/cuando "),
+        (" weil ", " porque "), (" dass ", " que "), (" ob ", " si "), (" obwohl ", " aunque "),
+        (" damit ", " para que "), (" bevor ", " antes de que "), (" nachdem ", " después de que "),
+        (" sobald ", " tan pronto como "), (" während ", " mientras "), (" auch ", " también "),
+        (" keine ", " ningún "), (" sein ", " su "), (" ist ", " ES "), (" hat", " TIENE"),
+        (" kann", " PUEDE"), (" können", " PUEDEN"), (" muss", " DEBE"), (" müssen", " DEBEN"),
+        (" gibt", " DA"), (" machen", " HACER"), (" arbeiten", " TRABAJAR"), (" helfen", " AYUDAR"),
+    ]
+    padded = " " + structural + " "
+    for de, es in replacements:
+        padded = padded.replace(de, es)
+    scaffold = " ".join(padded.split())
+    cue_map = [("dass","que"),("weil","porque"),("ob","si"),("wenn","si/cuando"),("obwohl","aunque"),("damit","para que"),("bevor","antes de que"),("nachdem","después de que"),("sobald","tan pronto como"),("während","mientras")]
+    cue = next((es for de,es in cue_map if (" "+de+" ") in (" "+clean.lower()+" ")), None)
+    if cue:
+        scaffold += "  ·  MOLDE: [principal] + " + cue + " + [sujeto/complementos] + [VERBO AL FINAL]"
+    return {"es": scaffold}
 
 
 @app.get("/api/progress")
