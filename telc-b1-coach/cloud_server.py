@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse, Response
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from urllib.request import Request as UrlRequest, urlopen
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -98,6 +98,24 @@ def natural_german_tts(text: str):
         with urlopen(req, timeout=8) as upstream:
             audio = upstream.read()
         return Response(content=audio, media_type="audio/mpeg", headers={"Cache-Control": "public, max-age=2592000"})
+    except Exception:
+        return Response(status_code=503)
+
+
+
+@app.get("/api/translate")
+def german_to_spanish(text: str):
+    clean = " ".join(text.split()).strip()[:900]
+    if not clean:
+        return Response(status_code=400)
+    url = "https://translate.googleapis.com/translate_a/single?" + urlencode({"client":"gtx","sl":"de","tl":"es","dt":"t","q":clean})
+    req = UrlRequest(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        import json
+        with urlopen(req, timeout=8) as upstream:
+            payload = json.loads(upstream.read().decode("utf-8"))
+        translated = "".join((part[0] or "") for part in (payload[0] or []))
+        return {"es": translated}
     except Exception:
         return Response(status_code=503)
 
