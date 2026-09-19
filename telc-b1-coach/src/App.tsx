@@ -56,7 +56,7 @@ function Sentences({setP}:any){
  const ordered=[...patterns].sort((a,b)=>priority(b)-priority(a));
  const active=patterns.find(p=>p.id===selected)||patterns[0];
  const examRows=EXAM_EXAMPLES.map((x:any)=>[x.es,x.es,x.de]);
- const directExamRows=EXAM_PATTERN_ROWS.filter((x:any)=>x.id===active.id&&!isCorruptExamGerman(x.de)&&(active.id!=='SUB'||Boolean(CURATED_SUB_ES[x.de]))).map((x:any)=>[CURATED_SUB_ES[x.de]||'Frase real de tus pruebas',CURATED_SUB_ES[x.de]||'Construye mentalmente esta frase con el molde de arriba.',x.de]);
+ const directExamRows=EXAM_PATTERN_ROWS.filter((x:any)=>x.id===active.id&&qaGermanApproved(x.de)&&(active.id!=='SUB'||Boolean(CURATED_SUB_ES[x.de]))).map((x:any)=>[CURATED_SUB_ES[x.de]||'Frase real de tus pruebas',CURATED_SUB_ES[x.de]||'Construye mentalmente esta frase con el molde de arriba.',x.de]);
  if(active.id==='SUB')directExamRows.push(...CURATED_SUB_EXTRA);
  const allRows=[...directExamRows,...SENTENCES,...examRows] as any[];
  const uniq=new Map<string,any>();for(const row of allRows){const de=String(row?.[2]||'').trim();if(de&&!uniq.has(de.toLowerCase()))uniq.set(de.toLowerCase(),row)}
@@ -71,10 +71,10 @@ function Sentences({setP}:any){
  useEffect(()=>{let live=true;setPracticeEs('');const de=String(d?.[2]||'');if(!de)return;
   if(active.id==='SUB'){const known=readableSubSpanish(de);if(known){setPracticeEs(known);return}}
   const k='telcb1-natural-es-qa-v1:'+de.toLowerCase();
-  const cached=localStorage.getItem(k);if(cached&&!hasGermanLeak(cached)){setPracticeEs(cached);return}
+  const cached=localStorage.getItem(k);if(cached&&qaSpanishApproved(cached)){setPracticeEs(cached);return}
   fetch('/api/translate?text='+encodeURIComponent(de),{cache:'no-store'}).then(r=>r.ok?r.json():Promise.reject()).then(x=>{
    const es=String(x?.es||'').trim();if(!live)return;
-   if(es&&es.length>8&&!hasGermanLeak(es)){localStorage.setItem(k,es);setPracticeEs(es)}
+   if(qaSpanishApproved(es)){localStorage.setItem(k,es);setPracticeEs(es)}
    else setPracticeEs('')}
   ).catch(()=>{if(live)setPracticeEs('')});return()=>{live=false}
  },[d?.[2],active.id]);
