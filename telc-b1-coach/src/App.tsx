@@ -7,9 +7,10 @@ async function say(t:string,r=.82){
   speechSynthesis.cancel();
   if(telcAudio){telcAudio.pause();telcAudio=null}
   const src='/api/tts?text='+encodeURIComponent(t);
-  const a=new Audio(src);telcAudio=a;a.playbackRate=r<.75?.88:1;
+  const a=new Audio(src);telcAudio=a;a.preload='auto';a.playbackRate=r<.75?.72:1;
+  await new Promise<void>((resolve,reject)=>{a.oncanplay=()=>resolve();a.onerror=()=>reject(new Error('TTS audio failed'));a.load()});
   await a.play();return
- }catch(e){console.warn('Natural TTS unavailable',e)}
+ }catch(e){console.warn('Natural TTS unavailable',e);throw e}
 }
 function audio(e:React.MouseEvent,t:string,r=.82){e.preventDefault();e.stopPropagation();void say(t,r)}
 const H=({e,t,s}:{e:string,t:string,s:string})=><header><div className="eyebrow">{e}</div><h1>{t}</h1><p>{s}</p></header>;
