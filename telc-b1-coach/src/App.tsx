@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useState}from'react';import{Brain,Headphones,Mic2,PenLine,Target,Volume2,CheckCircle2,ChevronRight,Flame,BookOpen,Play,CalendarDays,Cloud,CloudOff,LogIn,LogOut,Search,Sparkles}from'lucide-react';import'./styles.css';import{VOCAB,SENTENCES,LISTENING,SPEAKING,WRITING}from'./data';import{EXAM_EXAMPLES}from'./examExamples';import'./speakingTemplates';import{supabase,cloudEnabled}from'./supabase';import{loadCorpusWords,loadSpanishMap,approxPronunciation,type CorpusWord}from'./corpus';import VocabCoach from'./VocabCoach';
+import React,{useEffect,useMemo,useState}from'react';import{Brain,Headphones,Mic2,PenLine,Target,Volume2,CheckCircle2,ChevronRight,Flame,BookOpen,Play,CalendarDays,Cloud,CloudOff,LogIn,LogOut,Search,Sparkles}from'lucide-react';import'./styles.css';import{VOCAB,SENTENCES,LISTENING,SPEAKING,WRITING}from'./data';import{EXAM_EXAMPLES}from'./examExamples';import{EXAM_PATTERN_ROWS}from'./examPatternRows';import'./speakingTemplates';import{supabase,cloudEnabled}from'./supabase';import{loadCorpusWords,loadSpanishMap,approxPronunciation,type CorpusWord}from'./corpus';import VocabCoach from'./VocabCoach';
 type Tab='home'|'vocab'|'sentences'|'listening'|'speaking'|'writing';type View='study'|'all'|'learned'|'review'|'pending';type P={xp:number;known:string[];review:string[];listenDone:number;listenCorrect:number;speakDone:number;writeDone:number;examDate:string;listening:number;speaking:number;writing:number;reading:number};const D:P={xp:0,known:[],review:[],listenDone:0,listenCorrect:0,speakDone:0,writeDone:0,examDate:'2026-12-12',listening:25,speaking:35,writing:60,reading:72};
 function loadLocal(){try{return{...D,...JSON.parse(localStorage.getItem('telcb1')||'{}')}}catch{return D}}
 let telcAudio:HTMLAudioElement|null=null;
@@ -40,9 +40,10 @@ function Sentences({setP}:any){
  const ordered=[...patterns].sort((a,b)=>priority(b)-priority(a));
  const active=patterns.find(p=>p.id===selected)||patterns[0];
  const examRows=EXAM_EXAMPLES.map((x:any)=>[x.es,x.es,x.de]);
- const allRows=[...SENTENCES,...examRows] as any[];
+ const directExamRows=EXAM_PATTERN_ROWS.filter((x:any)=>x.id===active.id).map((x:any)=>['Frase real de tus pruebas', 'Construye mentalmente esta frase con el molde de arriba.', x.de]);
+ const allRows=[...directExamRows,...SENTENCES,...examRows] as any[];
  const uniq=new Map<string,any>();for(const row of allRows){const de=String(row?.[2]||'').trim();if(de&&!uniq.has(de.toLowerCase()))uniq.set(de.toLowerCase(),row)}
- const rawPool=[...uniq.values()].filter((d:any)=>classify(d[2])===active.id);
+ const rawPool=[...uniq.values()].filter((d:any)=>directExamRows.some((x:any)=>x[2]===d[2])||classify(d[2])===active.id);
  const diversity=(d:any)=>{const de=String(d[2]||'');const words=new Set(de.toLowerCase().replace(/[^a-zäöüß ]/g,'').split(/\s+/).filter((x:string)=>x.length>3));return words.size*3+Math.min(de.length,120)/20};
  const pool=rawPool.sort((x:any,y:any)=>diversity(y)-diversity(x)).slice(0,100);
  const seenIds:string[]=stats[active.id]?.seen||[];
