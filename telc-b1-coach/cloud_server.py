@@ -120,35 +120,6 @@ def german_to_spanish(text: str):
         return Response(status_code=503)
 
 
-@app.get("/api/translate-literal")
-def german_to_literal_spanish(text: str):
-    clean = " ".join(text.split()).strip()[:900]
-    if not clean:
-        return Response(status_code=400)
-    # This endpoint must never depend on an external translator: the drill needs a stable scaffold.
-    # Preserve the German clause shape explicitly and translate the structural connectors.
-    structural = clean
-    replacements = [
-        ("Warum ", "Por qué "), (" sollte ", " debería "), (" der ", " el "), (" die ", " la "),
-        (" das ", " eso "), (" dann ", " entonces "), (" suchen", " buscar"), (" wenn ", " si/cuando "),
-        (" weil ", " porque "), (" dass ", " que "), (" ob ", " si "), (" obwohl ", " aunque "),
-        (" damit ", " para que "), (" bevor ", " antes de que "), (" nachdem ", " después de que "),
-        (" sobald ", " tan pronto como "), (" während ", " mientras "), (" auch ", " también "),
-        (" keine ", " ningún "), (" sein ", " su "), (" ist ", " ES "), (" hat", " TIENE"),
-        (" kann", " PUEDE"), (" können", " PUEDEN"), (" muss", " DEBE"), (" müssen", " DEBEN"),
-        (" gibt", " DA"), (" machen", " HACER"), (" arbeiten", " TRABAJAR"), (" helfen", " AYUDAR"),
-    ]
-    padded = " " + structural + " "
-    for de, es in replacements:
-        padded = padded.replace(de, es)
-    scaffold = " ".join(padded.split())
-    cue_map = [("dass","que"),("weil","porque"),("ob","si"),("wenn","si/cuando"),("obwohl","aunque"),("damit","para que"),("bevor","antes de que"),("nachdem","después de que"),("sobald","tan pronto como"),("während","mientras")]
-    cue = next((es for de,es in cue_map if (" "+de+" ") in (" "+clean.lower()+" ")), None)
-    if cue:
-        scaffold += "  ·  MOLDE: [principal] + " + cue + " + [sujeto/complementos] + [VERBO AL FINAL]"
-    return {"es": scaffold}
-
-
 @app.get("/api/progress")
 def get_progress():
     with Session(engine) as db:
