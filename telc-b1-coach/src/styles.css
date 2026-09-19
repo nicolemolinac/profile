@@ -12,3 +12,10 @@
 .patternFilter{background:#fff;border:1px solid #e6deed;border-radius:18px;padding:16px;margin:0 0 18px;box-shadow:0 8px 24px rgba(62,47,91,.05)}.patternFilter label{display:block;font:900 10px Manrope;letter-spacing:.12em;color:#8a7e9f;margin-bottom:8px}.patternFilter select{width:100%;border:1px solid #ded5e8;border-radius:12px;background:#faf8fd;padding:12px 14px;font:800 14px Manrope;color:#302443}.filterMeta{font-size:12px;color:#7c7287;margin-top:9px}.filterMeta b{color:#302443}.practiceHead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:8px}.practiceHead div{display:flex;flex-direction:column;gap:4px}.practiceHead b{font:800 13px Manrope}.practiceHead>span{font-size:10px;font-weight:900;color:#8a7e9f}@media(max-width:560px){.practiceHead{align-items:flex-start;flex-direction:column}}
 
 .seenFilter{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.seenFilter button{border:1px solid #ded5e8;background:#faf8fd;border-radius:999px;padding:8px 12px;font:800 11px Manrope;color:#746985;cursor:pointer}.seenFilter button.sel{background:#352448;color:#fff;border-color:#352448}
+
+/* Listening controls: keep labels legible above the decorative luxe overlay. */
+.listenCard .pill,.listenCard .audioBox,.listenCard h3,.listenCard .options,.listenCard .errorTags,.listenCard .transcript,.listenCard>.primary,.listenCard>.ghost{position:relative;z-index:2}
+.listenCard .pill{display:inline-block;color:#5d426f;background:#fff;padding:7px 10px;border-radius:999px;letter-spacing:.08em;font-size:11px}
+.listenCard .audioBox{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.listenCard .audioBox button{position:relative;z-index:3;display:inline-flex;align-items:center;gap:7px;min-width:112px;justify-content:center;color:#fff!important;font-size:15px;font-weight:800;opacity:1!important;-webkit-text-fill-color:#fff}
+.listenCard .audioBox button svg{flex:0 0 auto;color:#fff;stroke:#fff}
