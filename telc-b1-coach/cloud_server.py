@@ -115,7 +115,7 @@ def german_to_spanish(text: str):
         with urlopen(req, timeout=8) as upstream:
             payload = json.loads(upstream.read().decode("utf-8"))
         translated = "".join((part[0] or "") for part in (payload[0] or []))
-        return {"es": translated}
+        return {"es": translated, "de": clean}
     except Exception:
         return Response(status_code=503)
 
